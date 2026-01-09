@@ -112,6 +112,14 @@ def place_order(symbol, action, volume=0.1):
 # Main function
 def main():
     symbol = input("Enter the stock or forex symbol (e.g., EURUSD, AAPL): ").upper()
+    
+    try:
+        lot_input = input("Enter lot size (default 0.1): ")
+        volume = float(lot_input) if lot_input.strip() else 0.1
+    except ValueError:
+        print("Invalid input. Using default lot size: 0.1")
+        volume = 0.1
+
     if not connect_to_mt5():
         return
 
@@ -123,11 +131,11 @@ def main():
     
     # Decide whether to buy or sell based on momentum
     if momentum > 0:
-        print("Momentum is positive. Placing a buy order...")
-        place_order(symbol, "buy")
+        print(f"Momentum is positive. Placing a buy order (Volume: {volume})...")
+        place_order(symbol, "buy", volume)
     elif momentum < 0:
-        print("Momentum is negative. Placing a sell order...")
-        place_order(symbol, "sell")
+        print(f"Momentum is negative. Placing a sell order (Volume: {volume})...")
+        place_order(symbol, "sell", volume)
     else:
         print("Momentum is neutral. No action taken.")
 
