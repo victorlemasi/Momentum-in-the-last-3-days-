@@ -75,10 +75,10 @@ def place_order(symbol, action, volume=0.1):
     # Determine filling mode
     filling_type = mt5.ORDER_FILLING_FOK
     
-    # Symbol filling flags (missing in mt5 module)
+    # Symbol filling flags (missing in mt5 module, defining manually)
     SYMBOL_FILLING_FOK = 1
     SYMBOL_FILLING_IOC = 2
-
+    
     if symbol_info.filling_mode & SYMBOL_FILLING_IOC:
         filling_type = mt5.ORDER_FILLING_IOC
     elif symbol_info.filling_mode & SYMBOL_FILLING_FOK:
