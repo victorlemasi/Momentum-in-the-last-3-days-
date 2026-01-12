@@ -70,7 +70,33 @@ def place_order(symbol, action, volume=0.1):
         print(f"Symbol {symbol} not found.")
         return False
 
+    # Check if symbol is visible in Market Watch, if not, enable it
+    if not symbol_info.visible:
+        print(f"Symbol {symbol} is not visible, attempting to select it...")
+        if not mt5.symbol_select(symbol, True):
+            print(f"symbol_select({symbol}) failed, error code =", mt5.last_error())
+            return False
+            
+    # Refresh symbol info after selection
+    symbol_info = mt5.symbol_info(symbol)
+
     price = symbol_info.ask if action == "buy" else symbol_info.bid
+    digits = symbol_info.digits
+    
+    # Calculate SL and TP based on percentage (e.g., 0.5% SL, 1.0% TP)
+    # This is more robust for different asset classes (Forex vs Stocks)
+    sl_percent = 0.005 # 0.5%
+    tp_percent = 0.01  # 1.0%
+    
+    sl_dist = price * sl_percent
+    tp_dist = price * tp_percent
+
+    sl = price - sl_dist if action == "buy" else price + sl_dist
+    tp = price + tp_dist if action == "buy" else price - tp_dist
+    
+    # Round to the correct number of decimal places for the symbol
+    sl = round(sl, digits)
+    tp = round(tp, digits)
 
     # Determine filling mode
     filling_type = mt5.ORDER_FILLING_FOK
@@ -91,9 +117,9 @@ def place_order(symbol, action, volume=0.1):
         "volume": volume,
         "type": order_type,
         "price": price,
-        "sl": price - 0.01 if action == "buy" else price + 0.01,
-        "tp": price + 0.02 if action == "buy" else price - 0.02,
-        "deviation": 10,
+        "sl": sl,
+        "tp": tp,
+        "deviation": 20,
         "magic": 123456,
         "comment": f"{action.capitalize()} order by Python",
         "type_time": mt5.ORDER_TIME_GTC,
@@ -101,17 +127,22 @@ def place_order(symbol, action, volume=0.1):
     }
 
     # Send the order
+    print(f"Sending order: {request}...")
     result = mt5.order_send(request)
     if result.retcode != mt5.TRADE_RETCODE_DONE:
-        print(f"Order failed. Error: {result.comment}")
+        print(f"Order failed. Error: {result.comment} (Retcode: {result.retcode})")
         return False
 
-    print(f"{action.capitalize()} order placed successfully.")
+    print(f"{action.capitalize()} order placed successfully. Ticket: {result.order}")
     return True
 
 # Main function
 def main():
-    symbol = input("Enter the stock or forex symbol (e.g., EURUSD, AAPL): ").upper()
+    if not connect_to_mt5():
+        return
+        
+    symbol_input = input("Enter the stock or forex symbols (comma-separated, e.g., EURUSD, AAPL, XAUUSD): ").upper()
+    symbols = [s.strip() for s in symbol_input.split(',') if s.strip()]
     
     try:
         lot_input = input("Enter lot size (default 0.1): ")
@@ -120,24 +151,23 @@ def main():
         print("Invalid input. Using default lot size: 0.1")
         volume = 0.1
 
-    if not connect_to_mt5():
-        return
+    for symbol in symbols:
+        print(f"\nProcessing {symbol}...")
+        momentum = calculate_momentum(symbol)
+        if momentum is None:
+            continue
 
-    momentum = calculate_momentum(symbol)
-    if momentum is None:
-        return
-
-    print(f"Momentum for {symbol}: {momentum}")
-    
-    # Decide whether to buy or sell based on momentum
-    if momentum > 0:
-        print(f"Momentum is positive. Placing a buy order (Volume: {volume})...")
-        place_order(symbol, "buy", volume)
-    elif momentum < 0:
-        print(f"Momentum is negative. Placing a sell order (Volume: {volume})...")
-        place_order(symbol, "sell", volume)
-    else:
-        print("Momentum is neutral. No action taken.")
+        print(f"Momentum for {symbol}: {momentum}")
+        
+        # Decide whether to buy or sell based on momentum
+        if momentum > 0:
+            print(f"Momentum is positive. Placing a buy order (Volume: {volume})...")
+            place_order(symbol, "buy", volume)
+        elif momentum < 0:
+            print(f"Momentum is negative. Placing a sell order (Volume: {volume})...")
+            place_order(symbol, "sell", volume)
+        else:
+            print("Momentum is neutral. No action taken.")
 
     # Shutdown MT5 connection
     mt5.shutdown()
