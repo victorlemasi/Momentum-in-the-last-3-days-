@@ -7,18 +7,32 @@ BROKER_LOGIN = 101097885  # Replace with your MetaTrader 5 account number
 BROKER_PASSWORD = "@0LxWoGe"  # Replace with your MetaTrader 5 password
 BROKER_SERVER = "MetaQuotes-Demo"  # Replace with your broker's server name
 
+# Mapping broker symbols to Yahoo Finance tickers
+YAHOO_MAPPING = {
+    'XAUUSD': 'GC=F',
+    'GOLD': 'GC=F',
+    'BTCUSD': 'BTC-USD',
+    'EURUSD': 'EURUSD=X',
+    'GBPUSD': 'GBPUSD=X',
+    'USDJPY': 'JPY=X',
+}
+
 # Function to calculate momentum
 def calculate_momentum(symbol):
     # Fetch historical data for the last 7 days to ensure we have enough data points
     end_date = datetime.datetime.now()
     start_date = end_date - datetime.timedelta(days=10) # Extended slightly to account for weekends
     
-    data = yf.download(symbol, start=start_date, end=end_date, interval="1d")
+    # Determine the ticker to use for Yahoo Finance
+    yahoo_ticker = YAHOO_MAPPING.get(symbol, symbol)
+    
+    print(f"--- Fetching Data for {symbol} (Yahoo Ticker: {yahoo_ticker}) ---")
+    data = yf.download(yahoo_ticker, start=start_date, end=end_date, interval="1d")
     
     # Check if data is empty, it might be a forex pair requiring "=X" for yfinance
-    if len(data) == 0:
+    if len(data) == 0 and symbol not in YAHOO_MAPPING:
         # Try appending "=X" which is common for forex pairs on Yahoo Finance
-        print(f"No data found for {symbol}, trying {symbol}=X...")
+        print(f"No data found for {yahoo_ticker}, trying {symbol}=X...")
         data = yf.download(f"{symbol}=X", start=start_date, end=end_date, interval="1d")
 
     if len(data) < 4:
