@@ -1,11 +1,16 @@
 import yfinance as yf
 import MetaTrader5 as mt5
 import datetime
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Broker login details
-BROKER_LOGIN = 101097885  # Replace with your MetaTrader 5 account number
-BROKER_PASSWORD = "@0LxWoGe"  # Replace with your MetaTrader 5 password
-BROKER_SERVER = "MetaQuotes-Demo"  # Replace with your broker's server name
+BROKER_LOGIN = int(os.getenv("BROKER_LOGIN", "0"))
+BROKER_PASSWORD = os.getenv("BROKER_PASSWORD", "")
+BROKER_SERVER = os.getenv("BROKER_SERVER", "")
 
 # Mapping broker symbols to Yahoo Finance tickers
 YAHOO_MAPPING = {
@@ -97,22 +102,8 @@ def place_order(symbol, action, volume=0.1):
     price = symbol_info.ask if action == "buy" else symbol_info.bid
     digits = symbol_info.digits
     
-    # Calculate SL and TP based on percentage (e.g., 0.5% SL, 1.0% TP)
-    # This is more robust for different asset classes (Forex vs Stocks)
-    sl_percent = 0.005 # 0.5%
-    tp_percent = 0.01  # 1.0%
-    
-    sl_dist = price * sl_percent
-    tp_dist = price * tp_percent
-
-    sl = price - sl_dist if action == "buy" else price + sl_dist
-    tp = price + tp_dist if action == "buy" else price - tp_dist
-    
-    # Round to the correct number of decimal places for the symbol
-    sl = round(sl, digits)
-    tp = round(tp, digits)
-
     # Determine filling mode
+    filling_type = mt5.ORDER_FILLING_FOK
     filling_type = mt5.ORDER_FILLING_FOK
     
     # Symbol filling flags (missing in mt5 module, defining manually)
@@ -131,8 +122,6 @@ def place_order(symbol, action, volume=0.1):
         "volume": volume,
         "type": order_type,
         "price": price,
-        "sl": sl,
-        "tp": tp,
         "deviation": 20,
         "magic": 123456,
         "comment": f"{action.capitalize()} order by Python",

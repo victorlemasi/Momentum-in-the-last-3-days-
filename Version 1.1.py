@@ -1,11 +1,16 @@
 import yfinance as yf
 import MetaTrader5 as mt5
 import datetime
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Broker login details
-BROKER_LOGIN = 12345678  # Replace with your MetaTrader 5 account number
-BROKER_PASSWORD = "your_password"  # Replace with your MetaTrader 5 password
-BROKER_SERVER = "YourBroker-Server"  # Replace with your broker's server name
+BROKER_LOGIN = int(os.getenv("BROKER_LOGIN", "0"))
+BROKER_PASSWORD = os.getenv("BROKER_PASSWORD", "")
+BROKER_SERVER = os.getenv("BROKER_SERVER", "")
 
 # Function to calculate momentum
 def calculate_momentum(symbol):
@@ -59,8 +64,6 @@ def place_order(symbol, action, volume=0.1):
         "volume": volume,
         "type": order_type,
         "price": price,
-        "sl": price - 0.01 if action == "buy" else price + 0.01,
-        "tp": price + 0.02 if action == "buy" else price - 0.02,
         "deviation": 10,
         "magic": 123456,
         "comment": f"{action.capitalize()} order by Python",

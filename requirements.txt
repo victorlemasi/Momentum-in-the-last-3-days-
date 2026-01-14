@@ -1,2 +1,4 @@
 yfinance
 MetaTrader5
+python-dotenv
+pandas
