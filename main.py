@@ -23,10 +23,11 @@ YAHOO_MAPPING = {
 }
 
 # Function to calculate momentum
-def calculate_momentum(symbol):
-    # Fetch historical data for the last 7 days to ensure we have enough data points
+def calculate_momentum(symbol, period_days):
+    # Fetch historical data - add extra days to account for weekends and holidays
     end_date = datetime.datetime.now()
-    start_date = end_date - datetime.timedelta(days=10) # Extended slightly to account for weekends
+    # Multiply by 1.5 to ensure we have enough data even with weekends
+    start_date = end_date - datetime.timedelta(days=int(period_days * 1.5) + 5)
     
     # Determine the ticker to use for Yahoo Finance
     yahoo_ticker = YAHOO_MAPPING.get(symbol, symbol)
@@ -40,15 +41,18 @@ def calculate_momentum(symbol):
         print(f"No data found for {yahoo_ticker}, trying {symbol}=X...")
         data = yf.download(f"{symbol}=X", start=start_date, end=end_date, interval="1d")
 
-    if len(data) < 4:
-        print("Not enough data to calculate momentum.")
+    # Check if we have enough data for the requested period
+    required_data_points = period_days + 1
+    if len(data) < required_data_points:
+        print(f"Not enough data to calculate momentum. Need at least {required_data_points} data points, but only have {len(data)}.")
         return None
 
-    # Calculate momentum as the difference between the last closing price and the price 3 days ago
-    # We need at least 4 data points to access index -4
+    # Calculate momentum as the difference between the last closing price and the price N days ago
+    # We need at least period_days + 1 data points to calculate momentum
     try:
         current_close = data['Close'].iloc[-1]
-        past_close = data['Close'].iloc[-4]
+        # Use -(period_days + 1) to get the price from N days ago
+        past_close = data['Close'].iloc[-(period_days + 1)]
         
          # Handle case where yfinance returns a DataFrame for Close (multi-ticker behavior edge case)
         if hasattr(current_close, 'iloc'): 
@@ -57,6 +61,7 @@ def calculate_momentum(symbol):
              past_close = past_close.iloc[0]
              
         momentum = current_close - past_close
+        print(f"Price {period_days} days ago: {past_close:.5f}, Current price: {current_close:.5f}")
         return momentum
     except Exception as e:
         print(f"Error calculating momentum: {e}")
@@ -153,14 +158,27 @@ def main():
     except ValueError:
         print("Invalid input. Using default lot size: 0.1")
         volume = 0.1
+    
+    # Get momentum period from user
+    try:
+        period_input = input("Enter momentum period in days (e.g., 3 for 3-day momentum, default 3): ")
+        period_days = int(period_input) if period_input.strip() else 3
+        if period_days < 1:
+            print("Period must be at least 1 day. Using default: 3")
+            period_days = 3
+    except ValueError:
+        print("Invalid input. Using default period: 3 days")
+        period_days = 3
+    
+    print(f"\nCalculating {period_days}-day momentum...\n")
 
     for symbol in symbols:
         print(f"\nProcessing {symbol}...")
-        momentum = calculate_momentum(symbol)
+        momentum = calculate_momentum(symbol, period_days)
         if momentum is None:
             continue
 
-        print(f"Momentum for {symbol}: {momentum}")
+        print(f"{period_days}-day Momentum for {symbol}: {momentum:.5f}")
         
         # Decide whether to buy or sell based on momentum
         if momentum > 0:
