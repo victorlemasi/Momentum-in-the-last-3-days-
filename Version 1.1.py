@@ -13,20 +13,55 @@ BROKER_PASSWORD = os.getenv("BROKER_PASSWORD", "")
 BROKER_SERVER = os.getenv("BROKER_SERVER", "")
 
 # Function to calculate momentum
-def calculate_momentum(symbol):
-    # Fetch historical data for the last 3 days
+def calculate_momentum(symbol, period_value, period_unit='days'):
+    """
+    Calculate momentum for a symbol over a specified period.
+    
+    Args:
+        symbol: Trading symbol
+        period_value: Number of time units for the period
+        period_unit: Either 'days' or 'hours'
+    """
+    # Fetch historical data
     end_date = datetime.datetime.now()
-    start_date = end_date - datetime.timedelta(days=7)
     
-    data = yf.download(symbol, start=start_date, end=end_date, interval="1d")
+    if period_unit == 'hours':
+        # For hours, fetch hourly data
+        # Add extra hours to ensure we have enough data
+        start_date = end_date - datetime.timedelta(hours=int(period_value * 1.5) + 24)
+        interval = "1h"
+        required_data_points = period_value + 1
+    else:  # days
+        # For days, fetch daily data
+        # Add extra days to account for weekends and holidays
+        start_date = end_date - datetime.timedelta(days=int(period_value * 2))
+        interval = "1d"
+        required_data_points = period_value + 1
     
-    if len(data) < 3:
-        print("Not enough data to calculate momentum.")
+    print(f"Fetching {period_value} {period_unit} of data with interval {interval}...")
+    data = yf.download(symbol, start=start_date, end=end_date, interval=interval)
+    
+    if len(data) < required_data_points:
+        print(f"Not enough data to calculate momentum. Need at least {required_data_points} data points, but only have {len(data)}.")
         return None
 
-    # Calculate momentum as the difference between the last closing price and the price 3 days ago
-    momentum = data['Close'][-1] - data['Close'][-4]
-    return momentum
+    # Calculate momentum as the difference between the last closing price and the price N periods ago
+    try:
+        current_close = data['Close'].iloc[-1]
+        past_close = data['Close'].iloc[-(period_value + 1)]
+        
+        # Handle case where yfinance returns a DataFrame for Close
+        if hasattr(current_close, 'iloc'):
+            current_close = current_close.iloc[0]
+        if hasattr(past_close, 'iloc'):
+            past_close = past_close.iloc[0]
+        
+        momentum = current_close - past_close
+        print(f"Price {period_value} {period_unit} ago: {past_close:.5f}, Current price: {current_close:.5f}")
+        return momentum
+    except Exception as e:
+        print(f"Error calculating momentum: {e}")
+        return None
 
 # Function to connect to MetaTrader 5
 def connect_to_mt5():
@@ -86,7 +121,29 @@ def main():
     if not connect_to_mt5():
         return
 
-    momentum = calculate_momentum(symbol)
+    # Get momentum period unit from user
+    period_unit_input = input("Enter time unit for momentum period (days/hours, default: days): ").lower().strip()
+    if period_unit_input == 'hours' or period_unit_input == 'hour' or period_unit_input == 'h':
+        period_unit = 'hours'
+        default_period = 24
+        unit_label = "hours"
+    else:
+        period_unit = 'days'
+        default_period = 3
+        unit_label = "days"
+    
+    # Get momentum period value from user
+    try:
+        period_input = input(f"Enter momentum period in {unit_label} (e.g., {default_period} for {default_period}-{unit_label[:-1]} momentum, default {default_period}): ")
+        period_value = int(period_input) if period_input.strip() else default_period
+        if period_value < 1:
+            print(f"Period must be at least 1 {unit_label[:-1]}. Using default: {default_period}")
+            period_value = default_period
+    except ValueError:
+        print(f"Invalid input. Using default period: {default_period} {unit_label}")
+        period_value = default_period
+
+    momentum = calculate_momentum(symbol, period_value, period_unit)
     if momentum is None:
         return
 

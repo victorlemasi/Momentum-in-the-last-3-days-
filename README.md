@@ -3,7 +3,7 @@
 A Python-based trading bot that calculates momentum using Yahoo Finance data and places trades via MetaTrader 5 (MT5).
 
 ## Features
-- **Momentum Calculation**: Uses `yfinance` to fetch historical data and calculate momentum over a 3-day period.
+- **Flexible Momentum Calculation**: Uses `yfinance` to fetch historical data and calculate momentum over customizable periods in either **days** or **hours**.
 - **MT5 Integration**: Automatically places buy/sell orders based on momentum signals.
 - **Environment Driven**: Sensitive credentials are managed via a `.env` file.
 - **Safe Trading**: Orders are placed without predefined Take Profit (TP) or Stop Loss (SL) as per current configuration.

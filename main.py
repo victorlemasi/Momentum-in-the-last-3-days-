@@ -23,36 +23,54 @@ YAHOO_MAPPING = {
 }
 
 # Function to calculate momentum
-def calculate_momentum(symbol, period_days):
-    # Fetch historical data - add extra days to account for weekends and holidays
+def calculate_momentum(symbol, period_value, period_unit='days'):
+    """
+    Calculate momentum for a symbol over a specified period.
+    
+    Args:
+        symbol: Trading symbol
+        period_value: Number of time units for the period
+        period_unit: Either 'days' or 'hours'
+    """
+    # Fetch historical data
     end_date = datetime.datetime.now()
-    # Multiply by 1.5 to ensure we have enough data even with weekends
-    start_date = end_date - datetime.timedelta(days=int(period_days * 1.5) + 5)
+    
+    if period_unit == 'hours':
+        # For hours, fetch hourly data
+        # Add extra hours to ensure we have enough data
+        start_date = end_date - datetime.timedelta(hours=int(period_value * 1.5) + 24)
+        interval = "1h"
+        required_data_points = period_value + 1
+    else:  # days
+        # For days, fetch daily data
+        # Multiply by 1.5 to ensure we have enough data even with weekends
+        start_date = end_date - datetime.timedelta(days=int(period_value * 1.5) + 5)
+        interval = "1d"
+        required_data_points = period_value + 1
     
     # Determine the ticker to use for Yahoo Finance
     yahoo_ticker = YAHOO_MAPPING.get(symbol, symbol)
     
     print(f"--- Fetching Data for {symbol} (Yahoo Ticker: {yahoo_ticker}) ---")
-    data = yf.download(yahoo_ticker, start=start_date, end=end_date, interval="1d")
+    print(f"Fetching {period_value} {period_unit} of data with interval {interval}...")
+    data = yf.download(yahoo_ticker, start=start_date, end=end_date, interval=interval)
     
     # Check if data is empty, it might be a forex pair requiring "=X" for yfinance
     if len(data) == 0 and symbol not in YAHOO_MAPPING:
         # Try appending "=X" which is common for forex pairs on Yahoo Finance
         print(f"No data found for {yahoo_ticker}, trying {symbol}=X...")
-        data = yf.download(f"{symbol}=X", start=start_date, end=end_date, interval="1d")
+        data = yf.download(f"{symbol}=X", start=start_date, end=end_date, interval=interval)
 
     # Check if we have enough data for the requested period
-    required_data_points = period_days + 1
     if len(data) < required_data_points:
         print(f"Not enough data to calculate momentum. Need at least {required_data_points} data points, but only have {len(data)}.")
         return None
 
-    # Calculate momentum as the difference between the last closing price and the price N days ago
-    # We need at least period_days + 1 data points to calculate momentum
+    # Calculate momentum as the difference between the last closing price and the price N periods ago
     try:
         current_close = data['Close'].iloc[-1]
-        # Use -(period_days + 1) to get the price from N days ago
-        past_close = data['Close'].iloc[-(period_days + 1)]
+        # Use -(period_value + 1) to get the price from N periods ago
+        past_close = data['Close'].iloc[-(period_value + 1)]
         
          # Handle case where yfinance returns a DataFrame for Close (multi-ticker behavior edge case)
         if hasattr(current_close, 'iloc'): 
@@ -61,7 +79,7 @@ def calculate_momentum(symbol, period_days):
              past_close = past_close.iloc[0]
              
         momentum = current_close - past_close
-        print(f"Price {period_days} days ago: {past_close:.5f}, Current price: {current_close:.5f}")
+        print(f"Price {period_value} {period_unit} ago: {past_close:.5f}, Current price: {current_close:.5f}")
         return momentum
     except Exception as e:
         print(f"Error calculating momentum: {e}")
@@ -159,26 +177,38 @@ def main():
         print("Invalid input. Using default lot size: 0.1")
         volume = 0.1
     
-    # Get momentum period from user
-    try:
-        period_input = input("Enter momentum period in days (e.g., 3 for 3-day momentum, default 3): ")
-        period_days = int(period_input) if period_input.strip() else 3
-        if period_days < 1:
-            print("Period must be at least 1 day. Using default: 3")
-            period_days = 3
-    except ValueError:
-        print("Invalid input. Using default period: 3 days")
-        period_days = 3
     
-    print(f"\nCalculating {period_days}-day momentum...\n")
+    # Get momentum period unit from user
+    period_unit_input = input("Enter time unit for momentum period (days/hours, default: days): ").lower().strip()
+    if period_unit_input == 'hours' or period_unit_input == 'hour' or period_unit_input == 'h':
+        period_unit = 'hours'
+        default_period = 24
+        unit_label = "hours"
+    else:
+        period_unit = 'days'
+        default_period = 3
+        unit_label = "days"
+    
+    # Get momentum period value from user
+    try:
+        period_input = input(f"Enter momentum period in {unit_label} (e.g., {default_period} for {default_period}-{unit_label[:-1]} momentum, default {default_period}): ")
+        period_value = int(period_input) if period_input.strip() else default_period
+        if period_value < 1:
+            print(f"Period must be at least 1 {unit_label[:-1]}. Using default: {default_period}")
+            period_value = default_period
+    except ValueError:
+        print(f"Invalid input. Using default period: {default_period} {unit_label}")
+        period_value = default_period
+    
+    print(f"\nCalculating {period_value}-{unit_label[:-1]} momentum...\n")
 
     for symbol in symbols:
         print(f"\nProcessing {symbol}...")
-        momentum = calculate_momentum(symbol, period_days)
+        momentum = calculate_momentum(symbol, period_value, period_unit)
         if momentum is None:
             continue
 
-        print(f"{period_days}-day Momentum for {symbol}: {momentum:.5f}")
+        print(f"{period_value}-{unit_label[:-1]} Momentum for {symbol}: {momentum:.5f}")
         
         # Decide whether to buy or sell based on momentum
         if momentum > 0:
