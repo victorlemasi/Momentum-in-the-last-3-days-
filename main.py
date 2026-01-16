@@ -177,30 +177,55 @@ def main():
         print("Invalid input. Using default lot size: 0.1")
         volume = 0.1
     
+    # Get momentum period from user (combined format)
+    period_input = input("Enter momentum period (e.g., '1 day', '30 days', '24 hours', default: 3 days): ").lower().strip()
     
-    # Get momentum period unit from user
-    period_unit_input = input("Enter time unit for momentum period (days/hours, default: days): ").lower().strip()
-    if period_unit_input == 'hours' or period_unit_input == 'hour' or period_unit_input == 'h':
-        period_unit = 'hours'
-        default_period = 24
-        unit_label = "hours"
-    else:
+    # Parse the input
+    if not period_input:
+        # Default: 3 days
+        period_value = 3
         period_unit = 'days'
-        default_period = 3
-        unit_label = "days"
+    else:
+        try:
+            # Split the input into parts
+            parts = period_input.split()
+            
+            if len(parts) == 1:
+                # Only number provided, assume days
+                period_value = int(parts[0])
+                period_unit = 'days'
+            elif len(parts) == 2:
+                # Number and unit provided
+                period_value = int(parts[0])
+                unit_str = parts[1].lower()
+                
+                # Determine unit
+                if unit_str in ['hour', 'hours', 'h', 'hr', 'hrs']:
+                    period_unit = 'hours'
+                elif unit_str in ['day', 'days', 'd']:
+                    period_unit = 'days'
+                else:
+                    print(f"Unknown unit '{unit_str}'. Using default: 3 days")
+                    period_value = 3
+                    period_unit = 'days'
+            else:
+                print("Invalid format. Using default: 3 days")
+                period_value = 3
+                period_unit = 'days'
+            
+            # Validate period value
+            if period_value < 1:
+                print("Period must be at least 1. Using default: 3 days")
+                period_value = 3
+                period_unit = 'days'
+                
+        except ValueError:
+            print("Invalid input. Using default: 3 days")
+            period_value = 3
+            period_unit = 'days'
     
-    # Get momentum period value from user
-    try:
-        period_input = input(f"Enter momentum period in {unit_label} (e.g., {default_period} for {default_period}-{unit_label[:-1]} momentum, default {default_period}): ")
-        period_value = int(period_input) if period_input.strip() else default_period
-        if period_value < 1:
-            print(f"Period must be at least 1 {unit_label[:-1]}. Using default: {default_period}")
-            period_value = default_period
-    except ValueError:
-        print(f"Invalid input. Using default period: {default_period} {unit_label}")
-        period_value = default_period
-    
-    print(f"\nCalculating {period_value}-{unit_label[:-1]} momentum...\n")
+    unit_label = period_unit[:-1] if period_value == 1 else period_unit
+    print(f"\nCalculating {period_value} {unit_label} momentum...\n")
 
     for symbol in symbols:
         print(f"\nProcessing {symbol}...")
